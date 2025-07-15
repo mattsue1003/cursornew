@@ -380,8 +380,7 @@ class SudokuGame {
         this.selectedCell = null;
         this.selectedNumber = 0;
         this.completedPuzzles = 0;
-        this.setupGrid();
-        this.setupEventListeners();
+        this.isInitialized = false;
     }
 
     setupGrid() {
@@ -403,6 +402,10 @@ class SudokuGame {
                 // 取消之前的選擇
                 document.querySelectorAll('.number-btn').forEach(b => b.classList.remove('selected'));
                 btn.classList.add('selected');
+                
+                // 根據按鈕內容確定數字（1,2,3,4或0代表清除）
+                const number = btn.textContent === '清除' ? 0 : parseInt(btn.textContent);
+                this.selectNumber(number);
             });
         });
     }
