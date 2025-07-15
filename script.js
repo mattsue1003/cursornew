@@ -9,8 +9,8 @@ class GameMaster {
         
         // 遊戲實例
         this.whackAMole = new WhackAMoleGame();
-        this.snake = new SnakeGame();
-        this.sudoku = new SudokuGame();
+        this.memoryCards = new MemoryCardsGame();
+        this.blockCrush = new BlockCrushGame();
     }
 
     init() {
@@ -22,8 +22,8 @@ class GameMaster {
         const saved = localStorage.getItem('gameHighScores');
         return saved ? JSON.parse(saved) : {
             'whack-a-mole': 0,
-            'snake': 0,
-            'sudoku': 0
+            'memory-cards': 0,
+            'block-crush': 0
         };
     }
 
@@ -33,12 +33,12 @@ class GameMaster {
 
     updateHighScoreDisplay() {
         const whackScoreElement = document.getElementById('whack-high-score');
-        const snakeScoreElement = document.getElementById('snake-high-score');
-        const sudokuScoreElement = document.getElementById('sudoku-high-score');
+        const memoryScoreElement = document.getElementById('memory-high-score');
+        const blockScoreElement = document.getElementById('block-high-score');
         
         if (whackScoreElement) whackScoreElement.textContent = this.highScores['whack-a-mole'];
-        if (snakeScoreElement) snakeScoreElement.textContent = this.highScores['snake'];
-        if (sudokuScoreElement) sudokuScoreElement.textContent = this.highScores['sudoku'];
+        if (memoryScoreElement) memoryScoreElement.textContent = this.highScores['memory-cards'];
+        if (blockScoreElement) blockScoreElement.textContent = this.highScores['block-crush'];
     }
 
     startGame(gameType) {
@@ -60,11 +60,11 @@ class GameMaster {
             case 'whack-a-mole':
                 this.whackAMole.start();
                 break;
-            case 'snake':
-                this.snake.start();
+            case 'memory-cards':
+                this.memoryCards.start();
                 break;
-            case 'sudoku':
-                this.sudoku.start();
+            case 'block-crush':
+                this.blockCrush.start();
                 break;
         }
         
@@ -103,11 +103,11 @@ class GameMaster {
             case 'whack-a-mole':
                 this.whackAMole.stop();
                 break;
-            case 'snake':
-                this.snake.stop();
+            case 'memory-cards':
+                this.memoryCards.stop();
                 break;
-            case 'sudoku':
-                this.sudoku.stop();
+            case 'block-crush':
+                this.blockCrush.stop();
                 break;
         }
         
@@ -144,11 +144,11 @@ class GameMaster {
                 case 'whack-a-mole':
                     this.whackAMole.stop();
                     break;
-                case 'snake':
-                    this.snake.stop();
+                case 'memory-cards':
+                    this.memoryCards.stop();
                     break;
-                case 'sudoku':
-                    this.sudoku.stop();
+                case 'block-crush':
+                    this.blockCrush.stop();
                     break;
             }
         }
@@ -268,546 +268,393 @@ class WhackAMoleGame {
     }
 }
 
-// 貪吃蛇遊戲
-class SnakeGame {
+// 翻牌記憶遊戲
+class MemoryCardsGame {
     constructor() {
-        this.canvas = null;
-        this.ctx = null;
-        this.snake = [{x: 10, y: 10}];
-        this.direction = 'right';
-        this.food = {x: 15, y: 15, type: 'normal'};
-        this.specialFood = null;
-        this.gridSize = 20;
-        this.tileCount = 20;
-        this.gameInterval = null;
-        this.foodEaten = 0;
-        this.gameSpeed = 150;
-        this.powerUps = [];
-        this.trails = [];
+        this.cards = [];
+        this.flippedCards = [];
+        this.matchedPairs = 0;
+        this.totalPairs = 8;
+        this.flipsCount = 0;
+        this.canFlip = true;
+        this.symbols = ['🐶', '🐱', '🐸', '🦊', '🐻', '🐼', '🐨', '🦄'];
     }
 
     start() {
-        this.canvas = document.getElementById('snake-canvas');
-        this.ctx = this.canvas.getContext('2d');
-        
-        // 初始化遊戲狀態
-        this.snake = [{x: 10, y: 10}];
-        this.direction = 'right';
-        this.foodEaten = 0;
-        this.gameSpeed = 150;
-        this.specialFood = null;
-        this.trails = [];
-        this.generateFood();
-        this.updateInfo();
-        
-        // 設置鍵盤事件監聽
-        this.setupKeyboardListeners();
-        
-        // 開始遊戲循環
-        this.gameInterval = setInterval(() => {
-            this.update();
-            this.draw();
-        }, this.gameSpeed);
+        this.setupGrid();
+        this.generateCards();
+        this.shuffleCards();
+        this.renderCards();
+        this.resetGameState();
     }
 
     stop() {
-        if (this.gameInterval) {
-            clearInterval(this.gameInterval);
-            this.gameInterval = null;
-        }
-        // 移除鍵盤事件監聽
-        document.removeEventListener('keydown', this.keyHandler);
-    }
-
-    setupKeyboardListeners() {
-        this.keyHandler = (e) => {
-            switch(e.key) {
-                case 'ArrowUp':
-                    if (this.direction !== 'down') this.direction = 'up';
-                    break;
-                case 'ArrowDown':
-                    if (this.direction !== 'up') this.direction = 'down';
-                    break;
-                case 'ArrowLeft':
-                    if (this.direction !== 'right') this.direction = 'left';
-                    break;
-                case 'ArrowRight':
-                    if (this.direction !== 'left') this.direction = 'right';
-                    break;
-            }
-        };
-        document.addEventListener('keydown', this.keyHandler);
-    }
-
-    changeDirection(newDirection) {
-        // 防止蛇往相反方向移動
-        if (newDirection === 'up' && this.direction !== 'down') this.direction = 'up';
-        if (newDirection === 'down' && this.direction !== 'up') this.direction = 'down';
-        if (newDirection === 'left' && this.direction !== 'right') this.direction = 'left';
-        if (newDirection === 'right' && this.direction !== 'left') this.direction = 'right';
-    }
-
-    update() {
-        const head = {...this.snake[0]};
-        
-        // 添加軌跡效果
-        this.trails.push({
-            x: head.x * this.gridSize + this.gridSize/2,
-            y: head.y * this.gridSize + this.gridSize/2,
-            life: 20
-        });
-        
-        // 根據方向移動蛇頭
-        switch(this.direction) {
-            case 'up':
-                head.y--;
-                break;
-            case 'down':
-                head.y++;
-                break;
-            case 'left':
-                head.x--;
-                break;
-            case 'right':
-                head.x++;
-                break;
-        }
-        
-        // 檢查碰撞（牆壁）
-        if (head.x < 0 || head.x >= this.tileCount || head.y < 0 || head.y >= this.tileCount) {
-            this.gameOver();
-            return;
-        }
-        
-        // 檢查碰撞（自己）
-        for (let segment of this.snake) {
-            if (head.x === segment.x && head.y === segment.y) {
-                this.gameOver();
-                return;
-            }
-        }
-        
-        this.snake.unshift(head);
-        
-        let ateFood = false;
-        
-        // 檢查是否吃到普通食物
-        if (head.x === this.food.x && head.y === this.food.y) {
-            this.foodEaten++;
-            gameMaster.addScore(10);
-            this.generateFood();
-            ateFood = true;
-        }
-        
-        // 檢查是否吃到特殊食物
-        if (this.specialFood && head.x === this.specialFood.x && head.y === this.specialFood.y) {
-            this.foodEaten += 3;
-            gameMaster.addScore(50);
-            this.specialFood = null;
-            ateFood = true;
-            
-            // 特殊效果：暫時減慢速度
-            this.gameSpeed += 30;
-            setTimeout(() => {
-                if (this.gameSpeed > 80) this.gameSpeed -= 30;
-            }, 3000);
-        }
-        
-        if (ateFood) {
-            this.updateInfo();
-            
-            // 隨機生成特殊食物
-            if (Math.random() < 0.3 && !this.specialFood) {
-                this.generateSpecialFood();
-            }
-            
-            // 隨著分數增加加快速度
-            if (this.foodEaten % 3 === 0 && this.gameSpeed > 80) {
-                this.gameSpeed -= 8;
-                this.restartGameLoop();
-            }
-        } else {
-            this.snake.pop(); // 移除尾部
-        }
-    }
-    
-    restartGameLoop() {
-        clearInterval(this.gameInterval);
-        this.gameInterval = setInterval(() => {
-            this.update();
-            this.draw();
-        }, this.gameSpeed);
-    }
-
-    generateFood() {
-        let newFood;
-        do {
-            newFood = {
-                x: Math.floor(Math.random() * this.tileCount),
-                y: Math.floor(Math.random() * this.tileCount),
-                type: 'normal'
-            };
-        } while (this.snake.some(segment => segment.x === newFood.x && segment.y === newFood.y) ||
-                 (this.specialFood && newFood.x === this.specialFood.x && newFood.y === this.specialFood.y));
-        
-        this.food = newFood;
-    }
-    
-    generateSpecialFood() {
-        let newFood;
-        do {
-            newFood = {
-                x: Math.floor(Math.random() * this.tileCount),
-                y: Math.floor(Math.random() * this.tileCount),
-                type: 'special'
-            };
-        } while (this.snake.some(segment => segment.x === newFood.x && segment.y === newFood.y) ||
-                 (newFood.x === this.food.x && newFood.y === this.food.y));
-        
-        this.specialFood = newFood;
-        
-        // 特殊食物10秒後消失
-        setTimeout(() => {
-            this.specialFood = null;
-        }, 10000);
-    }
-
-    draw() {
-        // 清空畫布
-        this.ctx.fillStyle = '#0a0a1a';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // 畫軌跡效果
-        this.drawTrails();
-        
-        // 畫蛇身
-        for (let i = 0; i < this.snake.length; i++) {
-            const segment = this.snake[i];
-            const alpha = 1 - (i * 0.05); // 身體逐漸透明
-            
-            if (i === 0) {
-                // 蛇頭 - 發光效果
-                this.ctx.shadowBlur = 20;
-                this.ctx.shadowColor = '#00ffff';
-                this.ctx.fillStyle = '#00ffff';
-            } else {
-                // 蛇身 - 漸變色
-                this.ctx.shadowBlur = 10;
-                this.ctx.shadowColor = '#2ecc71';
-                this.ctx.fillStyle = `rgba(46, 204, 113, ${alpha})`;
-            }
-            
-            this.ctx.fillRect(
-                segment.x * this.gridSize + 1, 
-                segment.y * this.gridSize + 1, 
-                this.gridSize - 2, 
-                this.gridSize - 2
-            );
-        }
-        
-        // 重置陰影
-        this.ctx.shadowBlur = 0;
-        
-        // 畫普通食物
-        this.drawFood(this.food, '#ff4757');
-        
-        // 畫特殊食物
-        if (this.specialFood) {
-            this.drawFood(this.specialFood, '#ffa502');
-        }
-    }
-    
-    drawTrails() {
-        // 更新和繪製軌跡
-        for (let i = this.trails.length - 1; i >= 0; i--) {
-            const trail = this.trails[i];
-            trail.life--;
-            
-            if (trail.life <= 0) {
-                this.trails.splice(i, 1);
-                continue;
-            }
-            
-            const alpha = trail.life / 20;
-            this.ctx.fillStyle = `rgba(0, 255, 255, ${alpha * 0.3})`;
-            this.ctx.fillRect(trail.x, trail.y, 3, 3);
-        }
-    }
-    
-    drawFood(food, color) {
-        const x = food.x * this.gridSize;
-        const y = food.y * this.gridSize;
-        
-        // 發光效果
-        this.ctx.shadowBlur = 15;
-        this.ctx.shadowColor = color;
-        
-        // 脈衝效果
-        const pulse = Math.sin(Date.now() * 0.01) * 0.2 + 0.8;
-        const size = (this.gridSize - 4) * pulse;
-        const offset = (this.gridSize - size) / 2;
-        
-        this.ctx.fillStyle = color;
-        this.ctx.fillRect(x + offset, y + offset, size, size);
-        
-        // 特殊食物添加星星效果
-        if (food.type === 'special') {
-            this.ctx.fillStyle = '#ffff00';
-            this.ctx.font = '12px Arial';
-            this.ctx.textAlign = 'center';
-            this.ctx.fillText('★', x + this.gridSize/2, y + this.gridSize/2 + 4);
-        }
-        
-        this.ctx.shadowBlur = 0;
-    }
-
-    updateInfo() {
-        document.getElementById('snake-length').textContent = this.snake.length;
-        document.getElementById('food-eaten').textContent = this.foodEaten;
-    }
-
-    gameOver() {
-        this.stop();
-        // 遊戲結束會在60秒到時由GameMaster處理
-    }
-}
-
-// 4x4數獨遊戲
-class SudokuGame {
-    constructor() {
-        this.grid = Array(16).fill(0);
-        this.solution = Array(16).fill(0);
-        this.given = Array(16).fill(false);
-        this.selectedCell = null;
-        this.selectedNumber = 0;
-        this.completedPuzzles = 0;
-        this.isInitialized = false;
+        // 記憶卡遊戲沒有需要停止的計時器
     }
 
     setupGrid() {
-        const gridElement = document.getElementById('sudoku-grid');
+        const gridElement = document.getElementById('memory-grid');
         gridElement.innerHTML = '';
         
         for (let i = 0; i < 16; i++) {
-            const cell = document.createElement('div');
-            cell.className = 'sudoku-cell';
-            cell.dataset.index = i;
-            cell.addEventListener('click', () => this.selectCell(i));
-            gridElement.appendChild(cell);
+            const card = document.createElement('div');
+            card.className = 'memory-card';
+            card.dataset.index = i;
+            card.addEventListener('click', () => this.flipCard(i));
+            
+            // 卡片背面
+            const cardBack = document.createElement('div');
+            cardBack.className = 'memory-card-back';
+            cardBack.textContent = '❓';
+            
+            // 卡片正面
+            const cardFront = document.createElement('div');
+            cardFront.className = 'memory-card-front';
+            
+            card.appendChild(cardBack);
+            card.appendChild(cardFront);
+            gridElement.appendChild(card);
         }
     }
 
-    setupEventListeners() {
-        // 重新綁定數字按鈕事件
-        const numberButtons = document.querySelectorAll('.number-btn');
-        numberButtons.forEach((btn) => {
-            // 移除舊的onclick屬性
-            btn.removeAttribute('onclick');
-            btn.addEventListener('click', () => {
-                // 取消之前的選擇
-                document.querySelectorAll('.number-btn').forEach(b => b.classList.remove('selected'));
-                btn.classList.add('selected');
-                
-                // 根據按鈕內容確定數字（1,2,3,4或0代表清除）
-                const number = btn.textContent === '清除' ? 0 : parseInt(btn.textContent);
-                this.selectNumber(number);
-            });
+    generateCards() {
+        this.cards = [];
+        // 每種符號放兩張牌
+        for (let i = 0; i < this.totalPairs; i++) {
+            this.cards.push(this.symbols[i], this.symbols[i]);
+        }
+    }
+
+    shuffleCards() {
+        for (let i = this.cards.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [this.cards[i], this.cards[j]] = [this.cards[j], this.cards[i]];
+        }
+    }
+
+    renderCards() {
+        const cardElements = document.querySelectorAll('.memory-card');
+        cardElements.forEach((cardElement, index) => {
+            const frontElement = cardElement.querySelector('.memory-card-front');
+            frontElement.textContent = this.cards[index];
         });
+    }
+
+    resetGameState() {
+        this.flippedCards = [];
+        this.matchedPairs = 0;
+        this.flipsCount = 0;
+        this.canFlip = true;
+        this.updateInfo();
+        
+        // 重置所有卡片狀態
+        document.querySelectorAll('.memory-card').forEach(card => {
+            card.classList.remove('flipped', 'matched', 'wrong');
+        });
+    }
+
+    flipCard(index) {
+        if (!this.canFlip) return;
+        
+        const cardElement = document.querySelector(`[data-index="${index}"]`);
+        
+        // 檢查卡片是否已經翻開或配對
+        if (cardElement.classList.contains('flipped') || 
+            cardElement.classList.contains('matched')) {
+            return;
+        }
+        
+        // 翻開卡片
+        cardElement.classList.add('flipped');
+        this.flippedCards.push(index);
+        this.flipsCount++;
+        this.updateInfo();
+        
+        // 檢查是否翻開了兩張卡片
+        if (this.flippedCards.length === 2) {
+            this.canFlip = false;
+            setTimeout(() => this.checkMatch(), 1000);
+        }
+    }
+
+    checkMatch() {
+        const [firstIndex, secondIndex] = this.flippedCards;
+        const firstCard = document.querySelector(`[data-index="${firstIndex}"]`);
+        const secondCard = document.querySelector(`[data-index="${secondIndex}"]`);
+        
+        if (this.cards[firstIndex] === this.cards[secondIndex]) {
+            // 配對成功
+            firstCard.classList.add('matched');
+            secondCard.classList.add('matched');
+            firstCard.classList.remove('flipped');
+            secondCard.classList.remove('flipped');
+            
+            this.matchedPairs++;
+            gameMaster.addScore(20);
+            
+            // 檢查遊戲是否完成
+            if (this.matchedPairs === this.totalPairs) {
+                // 完成遊戲，額外獎勵
+                const bonus = Math.max(0, 100 - this.flipsCount);
+                gameMaster.addScore(bonus);
+                
+                // 重新開始新的一輪
+                setTimeout(() => {
+                    this.start();
+                }, 1500);
+            }
+        } else {
+            // 配對失敗
+            firstCard.classList.add('wrong');
+            secondCard.classList.add('wrong');
+            
+            setTimeout(() => {
+                firstCard.classList.remove('flipped', 'wrong');
+                secondCard.classList.remove('flipped', 'wrong');
+            }, 500);
+        }
+        
+        this.flippedCards = [];
+        this.canFlip = true;
+    }
+
+    updateInfo() {
+        document.getElementById('pairs-found').textContent = this.matchedPairs;
+        document.getElementById('flips-count').textContent = this.flipsCount;
+    }
+}
+
+// 消除方塊遊戲
+class BlockCrushGame {
+    constructor() {
+        this.grid = [];
+        this.gridWidth = 8;
+        this.gridHeight = 10;
+        this.colors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
+        this.selectedBlocks = [];
+        this.blocksCrushed = 0;
+        this.comboCount = 0;
+        this.isAnimating = false;
     }
 
     start() {
-        if (!this.isInitialized) {
-            this.setupGrid();
-            this.setupEventListeners();
-            this.isInitialized = true;
-        }
-        this.generatePuzzle();
-        this.updateDisplay();
+        this.setupGrid();
+        this.generateBlocks();
+        this.renderGrid();
+        this.resetGameState();
     }
 
     stop() {
-        // 數獨沒有需要停止的計時器
+        // 消除方塊遊戲沒有需要停止的計時器
     }
 
-    generatePuzzle() {
-        // 生成一個完整的4x4數獨解答
-        this.solution = [
-            1, 2, 3, 4,
-            3, 4, 1, 2,
-            2, 1, 4, 3,
-            4, 3, 2, 1
-        ];
+    setupGrid() {
+        const gridElement = document.getElementById('block-grid');
+        gridElement.innerHTML = '';
         
-        // 隨機交換行和列來創建變化
-        this.shuffleSolution();
-        
-        // 創建謎題（隱藏一些數字）
-        this.grid = [...this.solution];
-        this.given.fill(false);
-        
-        // 隨機保留6-8個數字作為提示
-        const numGiven = 6 + Math.floor(Math.random() * 3);
-        const positions = Array.from({length: 16}, (_, i) => i);
-        
-        // 隨機打亂位置
-        for (let i = positions.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [positions[i], positions[j]] = [positions[j], positions[i]];
+        // 創建80個方塊 (8x10)
+        for (let i = 0; i < this.gridWidth * this.gridHeight; i++) {
+            const block = document.createElement('div');
+            block.className = 'block-cell';
+            block.dataset.index = i;
+            block.addEventListener('click', () => this.selectBlock(i));
+            gridElement.appendChild(block);
         }
-        
-        // 保留前numGiven個位置的數字
-        positions.slice(0, numGiven).forEach(pos => {
-            this.given[pos] = true;
+    }
+
+    generateBlocks() {
+        this.grid = [];
+        for (let i = 0; i < this.gridWidth * this.gridHeight; i++) {
+            const colorIndex = Math.floor(Math.random() * this.colors.length);
+            this.grid[i] = this.colors[colorIndex];
+        }
+    }
+
+    renderGrid() {
+        const blockElements = document.querySelectorAll('.block-cell');
+        blockElements.forEach((block, index) => {
+            const color = this.grid[index];
+            block.className = `block-cell color-${color}`;
+            block.dataset.index = index;
         });
-        
-        // 隱藏其他位置的數字
-        for (let i = 0; i < 16; i++) {
-            if (!this.given[i]) {
-                this.grid[i] = 0;
-            }
-        }
     }
 
-    shuffleSolution() {
-        // 隨機交換同一組內的行
-        if (Math.random() > 0.5) {
-            this.swapRows(0, 1);
-        }
-        if (Math.random() > 0.5) {
-            this.swapRows(2, 3);
-        }
-        
-        // 隨機交換同一組內的列
-        if (Math.random() > 0.5) {
-            this.swapCols(0, 1);
-        }
-        if (Math.random() > 0.5) {
-            this.swapCols(2, 3);
-        }
-        
-        // 隨機交換行組
-        if (Math.random() > 0.5) {
-            this.swapRowGroups();
-        }
-        
-        // 隨機交換列組
-        if (Math.random() > 0.5) {
-            this.swapColGroups();
-        }
+    resetGameState() {
+        this.selectedBlocks = [];
+        this.blocksCrushed = 0;
+        this.comboCount = 0;
+        this.isAnimating = false;
+        this.updateInfo();
     }
 
-    swapRows(row1, row2) {
-        for (let col = 0; col < 4; col++) {
-            const index1 = row1 * 4 + col;
-            const index2 = row2 * 4 + col;
-            [this.solution[index1], this.solution[index2]] = [this.solution[index2], this.solution[index1]];
-        }
-    }
-
-    swapCols(col1, col2) {
-        for (let row = 0; row < 4; row++) {
-            const index1 = row * 4 + col1;
-            const index2 = row * 4 + col2;
-            [this.solution[index1], this.solution[index2]] = [this.solution[index2], this.solution[index1]];
-        }
-    }
-
-    swapRowGroups() {
-        for (let col = 0; col < 4; col++) {
-            [this.solution[0 * 4 + col], this.solution[2 * 4 + col]] = [this.solution[2 * 4 + col], this.solution[0 * 4 + col]];
-            [this.solution[1 * 4 + col], this.solution[3 * 4 + col]] = [this.solution[3 * 4 + col], this.solution[1 * 4 + col]];
-        }
-    }
-
-    swapColGroups() {
-        for (let row = 0; row < 4; row++) {
-            [this.solution[row * 4 + 0], this.solution[row * 4 + 2]] = [this.solution[row * 4 + 2], this.solution[row * 4 + 0]];
-            [this.solution[row * 4 + 1], this.solution[row * 4 + 3]] = [this.solution[row * 4 + 3], this.solution[row * 4 + 1]];
-        }
-    }
-
-    selectCell(index) {
-        if (this.given[index]) return; // 不能選擇給定的數字
+    selectBlock(index) {
+        if (this.isAnimating) return;
         
-        // 取消之前的選擇
-        document.querySelectorAll('.sudoku-cell').forEach(cell => {
-            cell.classList.remove('selected');
-        });
+        const color = this.grid[index];
+        if (!color) return; // 空方塊
         
-        // 選擇新的格子
-        this.selectedCell = index;
-        document.querySelector(`[data-index="${index}"]`).classList.add('selected');
-    }
-
-    selectNumber(number) {
-        this.selectedNumber = number;
-        if (this.selectedCell !== null) {
-            this.placeNumber();
-        }
-    }
-
-    placeNumber() {
-        if (this.selectedCell === null) return;
+        // 找到所有連接的同色方塊
+        const connectedBlocks = this.findConnectedBlocks(index, color);
         
-        const cell = document.querySelector(`[data-index="${this.selectedCell}"]`);
-        
-        if (this.selectedNumber === 0) {
-            // 清除數字
-            this.grid[this.selectedCell] = 0;
-            cell.textContent = '';
-            cell.classList.remove('error', 'correct');
+        if (connectedBlocks.length >= 3) {
+            this.crushBlocks(connectedBlocks);
         } else {
-            // 放置數字
-            this.grid[this.selectedCell] = this.selectedNumber;
-            cell.textContent = this.selectedNumber;
-            
-            // 檢查是否正確
-            if (this.selectedNumber === this.solution[this.selectedCell]) {
-                cell.classList.remove('error');
-                cell.classList.add('correct');
-                
-                // 檢查是否完成
-                if (this.isPuzzleComplete()) {
-                    this.completedPuzzles++;
-                    gameMaster.addScore(50);
-                    setTimeout(() => {
-                        this.generatePuzzle();
-                        this.updateDisplay();
-                    }, 500);
-                }
-            } else {
-                cell.classList.remove('correct');
-                cell.classList.add('error');
-            }
+            // 少於3個，顯示選中效果但不消除
+            this.showSelection(connectedBlocks);
+            setTimeout(() => this.clearSelection(), 800);
         }
     }
 
-    isPuzzleComplete() {
-        for (let i = 0; i < 16; i++) {
-            if (this.grid[i] !== this.solution[i]) {
-                return false;
+    findConnectedBlocks(startIndex, targetColor, visited = new Set()) {
+        if (visited.has(startIndex)) return [];
+        if (this.grid[startIndex] !== targetColor) return [];
+        
+        visited.add(startIndex);
+        const connected = [startIndex];
+        
+        // 檢查四個方向的鄰居
+        const neighbors = this.getNeighbors(startIndex);
+        for (const neighborIndex of neighbors) {
+            if (!visited.has(neighborIndex) && this.grid[neighborIndex] === targetColor) {
+                connected.push(...this.findConnectedBlocks(neighborIndex, targetColor, visited));
             }
         }
-        return true;
+        
+        return connected;
     }
 
-    updateDisplay() {
-        const cells = document.querySelectorAll('.sudoku-cell');
-        cells.forEach((cell, index) => {
-            cell.textContent = this.grid[index] || '';
-            cell.classList.remove('given', 'error', 'correct', 'selected');
-            
-            if (this.given[index]) {
-                cell.classList.add('given');
-            }
+    getNeighbors(index) {
+        const neighbors = [];
+        const row = Math.floor(index / this.gridWidth);
+        const col = index % this.gridWidth;
+        
+        // 上
+        if (row > 0) neighbors.push(index - this.gridWidth);
+        // 下
+        if (row < this.gridHeight - 1) neighbors.push(index + this.gridWidth);
+        // 左
+        if (col > 0) neighbors.push(index - 1);
+        // 右
+        if (col < this.gridWidth - 1) neighbors.push(index + 1);
+        
+        return neighbors;
+    }
+
+    showSelection(blocks) {
+        this.clearSelection();
+        blocks.forEach(index => {
+            const blockElement = document.querySelector(`[data-index="${index}"]`);
+            blockElement.classList.add('selected');
+        });
+        this.selectedBlocks = blocks;
+    }
+
+    clearSelection() {
+        document.querySelectorAll('.block-cell').forEach(block => {
+            block.classList.remove('selected');
+        });
+        this.selectedBlocks = [];
+    }
+
+    crushBlocks(blocks) {
+        this.isAnimating = true;
+        this.clearSelection();
+        
+        // 添加壓碎動畫
+        blocks.forEach(index => {
+            const blockElement = document.querySelector(`[data-index="${index}"]`);
+            blockElement.classList.add('crushing');
+            this.grid[index] = null; // 清空方塊
         });
         
-        this.selectedCell = null;
+        // 計分
+        const baseScore = blocks.length * 5;
+        const comboBonus = this.comboCount * 10;
+        const totalScore = baseScore + comboBonus;
+        gameMaster.addScore(totalScore);
+        
+        this.blocksCrushed += blocks.length;
+        this.comboCount++;
+        this.updateInfo();
+        
+        // 動畫結束後處理
+        setTimeout(() => {
+            this.applyGravity();
+            this.fillEmptySpaces();
+            this.renderGrid();
+            
+            // 檢查是否還有可消除的方塊
+            setTimeout(() => {
+                if (!this.hasValidMoves()) {
+                    // 沒有可消除的方塊，重新生成
+                    this.generateBlocks();
+                    this.renderGrid();
+                    this.comboCount = 0;
+                }
+                this.isAnimating = false;
+            }, 300);
+        }, 600);
     }
 
-    generateNewSudoku() {
-        this.generatePuzzle();
-        this.updateDisplay();
+    applyGravity() {
+        // 讓方塊下落
+        for (let col = 0; col < this.gridWidth; col++) {
+            const column = [];
+            
+            // 收集該列的非空方塊
+            for (let row = this.gridHeight - 1; row >= 0; row--) {
+                const index = row * this.gridWidth + col;
+                if (this.grid[index]) {
+                    column.push(this.grid[index]);
+                }
+            }
+            
+            // 重新填充該列，從底部開始
+            for (let row = this.gridHeight - 1; row >= 0; row--) {
+                const index = row * this.gridWidth + col;
+                if (column.length > this.gridHeight - 1 - row) {
+                    this.grid[index] = column[this.gridHeight - 1 - row];
+                } else {
+                    this.grid[index] = null;
+                }
+            }
+        }
+    }
+
+    fillEmptySpaces() {
+        // 在頂部生成新的方塊
+        for (let i = 0; i < this.grid.length; i++) {
+            if (!this.grid[i]) {
+                const colorIndex = Math.floor(Math.random() * this.colors.length);
+                this.grid[i] = this.colors[colorIndex];
+            }
+        }
+    }
+
+    hasValidMoves() {
+        // 檢查是否還有3個或以上的連接方塊
+        for (let i = 0; i < this.grid.length; i++) {
+            if (this.grid[i]) {
+                const connected = this.findConnectedBlocks(i, this.grid[i]);
+                if (connected.length >= 3) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    updateInfo() {
+        document.getElementById('blocks-crushed').textContent = this.blocksCrushed;
+        const comboElement = document.getElementById('combo-count');
+        comboElement.textContent = this.comboCount;
+        
+        // 連擊效果
+        if (this.comboCount > 1) {
+            comboElement.parentElement.classList.add('combo-active');
+        } else {
+            comboElement.parentElement.classList.remove('combo-active');
+        }
     }
 }
 
@@ -833,14 +680,4 @@ function restartCurrentGame() {
     gameMaster.restartCurrentGame();
 }
 
-function changeDirection(direction) {
-    gameMaster.snake.changeDirection(direction);
-}
-
-function selectNumber(number) {
-    gameMaster.sudoku.selectNumber(number);
-}
-
-function generateNewSudoku() {
-    gameMaster.sudoku.generateNewSudoku();
-}
+// 新遊戲不需要額外的全局函數，所有操作都通過點擊事件處理

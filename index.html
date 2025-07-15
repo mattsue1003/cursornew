@@ -21,18 +21,18 @@
                     <div class="high-score">最高分: <span id="whack-high-score">0</span></div>
                 </div>
                 
-                <div class="game-card" onclick="startGame('snake')">
-                    <div class="game-icon">🐍</div>
-                    <h3>貪吃蛇</h3>
-                    <p>吃食物讓蛇變長</p>
-                    <div class="high-score">最高分: <span id="snake-high-score">0</span></div>
+                <div class="game-card" onclick="startGame('memory-cards')">
+                    <div class="game-icon">🃏</div>
+                    <h3>翻牌記憶</h3>
+                    <p>找到相同的卡片配對</p>
+                    <div class="high-score">最高分: <span id="memory-high-score">0</span></div>
                 </div>
                 
-                <div class="game-card" onclick="startGame('sudoku')">
-                    <div class="game-icon">🔢</div>
-                    <h3>4×4 數獨</h3>
-                    <p>完成數獨謎題</p>
-                    <div class="high-score">最高分: <span id="sudoku-high-score">0</span></div>
+                <div class="game-card" onclick="startGame('block-crush')">
+                    <div class="game-icon">💎</div>
+                    <h3>消除方塊</h3>
+                    <p>點擊相連同色方塊消除</p>
+                    <div class="high-score">最高分: <span id="block-high-score">0</span></div>
                 </div>
             </div>
         </div>
@@ -63,45 +63,34 @@
             </div>
         </div>
 
-        <!-- 貪吃蛇遊戲 -->
-        <div id="snake" class="screen game-screen">
-            <h2>🐍 貪吃蛇</h2>
-            <div class="snake-container">
-                <canvas id="snake-canvas" width="400" height="400"></canvas>
-            </div>
-            <div class="snake-controls">
-                <div class="direction-buttons">
-                    <button class="dir-btn" onclick="changeDirection('up')">↑</button>
-                    <div class="horizontal-btns">
-                        <button class="dir-btn" onclick="changeDirection('left')">←</button>
-                        <button class="dir-btn" onclick="changeDirection('right')">→</button>
-                    </div>
-                    <button class="dir-btn" onclick="changeDirection('down')">↓</button>
-                </div>
-                <div class="snake-info">
-                    <div class="snake-length">蛇長: <span id="snake-length">1</span></div>
-                    <div class="food-eaten">食物: <span id="food-eaten">0</span></div>
+        <!-- 翻牌記憶遊戲 -->
+        <div id="memory-cards" class="screen game-screen">
+            <h2>🃏 翻牌記憶</h2>
+            <div class="memory-container">
+                <div class="memory-grid" id="memory-grid">
+                    <!-- 16張卡片，4x4 -->
                 </div>
             </div>
-            <div class="game-tips">使用方向鍵或按鈕控制蛇的移動</div>
+            <div class="memory-info">
+                <div class="pairs-found">配對成功: <span id="pairs-found">0</span>/8</div>
+                <div class="flips-count">翻牌次數: <span id="flips-count">0</span></div>
+            </div>
+            <div class="game-tips">點擊卡片翻開，找到相同圖案的配對</div>
         </div>
 
-        <!-- 4x4數獨遊戲 -->
-        <div id="sudoku" class="screen game-screen">
-            <h2>🔢 4×4 數獨</h2>
-            <div class="sudoku-container">
-                <div class="sudoku-grid" id="sudoku-grid">
-                    <!-- 16個格子，4x4 -->
+        <!-- 消除方塊遊戲 -->
+        <div id="block-crush" class="screen game-screen">
+            <h2>💎 消除方塊</h2>
+            <div class="block-container">
+                <div class="block-grid" id="block-grid">
+                    <!-- 8x10 = 80個方塊 -->
                 </div>
-                <div class="number-buttons">
-                    <button class="number-btn">1</button>
-                    <button class="number-btn">2</button>
-                    <button class="number-btn">3</button>
-                    <button class="number-btn">4</button>
-                    <button class="number-btn">清除</button>
-                </div>
-                <button onclick="generateNewSudoku()">新遊戲</button>
             </div>
+            <div class="block-info">
+                <div class="blocks-crushed">已消除: <span id="blocks-crushed">0</span></div>
+                <div class="combo-count">連擊: <span id="combo-count">0</span></div>
+            </div>
+            <div class="game-tips">點擊3個或以上相連的同色方塊進行消除</div>
         </div>
 
         <!-- 遊戲結束畫面 -->
