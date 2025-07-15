@@ -10,7 +10,7 @@ class GameMaster {
         
         // 遊戲實例
         this.whackAMole = new WhackAMoleGame();
-        this.hanoi = new HanoiGame();
+        this.snake = new SnakeGame();
         this.sudoku = new SudokuGame();
     }
 
@@ -18,7 +18,7 @@ class GameMaster {
         const saved = localStorage.getItem('gameHighScores');
         return saved ? JSON.parse(saved) : {
             'whack-a-mole': 0,
-            'hanoi': 0,
+            'snake': 0,
             'sudoku': 0
         };
     }
@@ -29,7 +29,7 @@ class GameMaster {
 
     updateHighScoreDisplay() {
         document.getElementById('whack-high-score').textContent = this.highScores['whack-a-mole'];
-        document.getElementById('hanoi-high-score').textContent = this.highScores['hanoi'];
+        document.getElementById('snake-high-score').textContent = this.highScores['snake'];
         document.getElementById('sudoku-high-score').textContent = this.highScores['sudoku'];
     }
 
@@ -52,8 +52,8 @@ class GameMaster {
             case 'whack-a-mole':
                 this.whackAMole.start();
                 break;
-            case 'hanoi':
-                this.hanoi.start();
+            case 'snake':
+                this.snake.start();
                 break;
             case 'sudoku':
                 this.sudoku.start();
@@ -95,8 +95,8 @@ class GameMaster {
             case 'whack-a-mole':
                 this.whackAMole.stop();
                 break;
-            case 'hanoi':
-                this.hanoi.stop();
+            case 'snake':
+                this.snake.stop();
                 break;
             case 'sudoku':
                 this.sudoku.stop();
@@ -136,8 +136,8 @@ class GameMaster {
                 case 'whack-a-mole':
                     this.whackAMole.stop();
                     break;
-                case 'hanoi':
-                    this.hanoi.stop();
+                case 'snake':
+                    this.snake.stop();
                     break;
                 case 'sudoku':
                     this.sudoku.stop();
@@ -247,127 +247,194 @@ class WhackAMoleGame {
     }
 }
 
-// 河內塔遊戲
-class HanoiGame {
+// 貪吃蛇遊戲
+class SnakeGame {
     constructor() {
-        this.poles = [[], [], []];
-        this.selectedDisk = null;
-        this.selectedPole = null;
-        this.moves = 0;
-        this.completedTowers = 0;
-        this.setupEventListeners();
-    }
-
-    setupEventListeners() {
-        document.querySelectorAll('.hanoi-pole').forEach((pole, index) => {
-            pole.addEventListener('click', () => {
-                this.handlePoleClick(index);
-            });
-        });
+        this.canvas = null;
+        this.ctx = null;
+        this.snake = [{x: 10, y: 10}];
+        this.direction = 'right';
+        this.food = {x: 15, y: 15};
+        this.gridSize = 20;
+        this.tileCount = 20;
+        this.gameInterval = null;
+        this.foodEaten = 0;
+        this.gameSpeed = 150;
     }
 
     start() {
-        this.resetGame();
+        this.canvas = document.getElementById('snake-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        
+        // 初始化遊戲狀態
+        this.snake = [{x: 10, y: 10}];
+        this.direction = 'right';
+        this.foodEaten = 0;
+        this.generateFood();
+        this.updateInfo();
+        
+        // 設置鍵盤事件監聽
+        this.setupKeyboardListeners();
+        
+        // 開始遊戲循環
+        this.gameInterval = setInterval(() => {
+            this.update();
+            this.draw();
+        }, this.gameSpeed);
     }
 
     stop() {
-        // 河內塔沒有需要停止的計時器
+        if (this.gameInterval) {
+            clearInterval(this.gameInterval);
+            this.gameInterval = null;
+        }
+        // 移除鍵盤事件監聽
+        document.removeEventListener('keydown', this.keyHandler);
     }
 
-    resetGame() {
-        this.poles = [[], [], []];
-        this.selectedDisk = null;
-        this.selectedPole = null;
-        this.moves = 0;
-        this.completedTowers = 0;
-        
-        // 初始化3個圓盤在第一根柱子上
-        this.poles[0] = [3, 2, 1]; // 大到小
-        
-        this.updateDisplay();
-        document.getElementById('moves').textContent = this.moves;
+    setupKeyboardListeners() {
+        this.keyHandler = (e) => {
+            switch(e.key) {
+                case 'ArrowUp':
+                    if (this.direction !== 'down') this.direction = 'up';
+                    break;
+                case 'ArrowDown':
+                    if (this.direction !== 'up') this.direction = 'down';
+                    break;
+                case 'ArrowLeft':
+                    if (this.direction !== 'right') this.direction = 'left';
+                    break;
+                case 'ArrowRight':
+                    if (this.direction !== 'left') this.direction = 'right';
+                    break;
+            }
+        };
+        document.addEventListener('keydown', this.keyHandler);
     }
 
-    updateDisplay() {
-        this.poles.forEach((pole, poleIndex) => {
-            const poleElement = document.getElementById(`pole-${poleIndex}`);
-            const disksContainer = poleElement.querySelector('.disks');
-            disksContainer.innerHTML = '';
-            
-            pole.forEach((diskSize, diskIndex) => {
-                const disk = document.createElement('div');
-                disk.className = `disk size-${diskSize}`;
-                disk.textContent = diskSize;
-                disk.dataset.size = diskSize;
-                disk.dataset.pole = poleIndex;
-                
-                disk.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.handleDiskClick(diskSize, poleIndex);
-                });
-                
-                disksContainer.appendChild(disk);
-            });
-        });
+    changeDirection(newDirection) {
+        // 防止蛇往相反方向移動
+        if (newDirection === 'up' && this.direction !== 'down') this.direction = 'up';
+        if (newDirection === 'down' && this.direction !== 'up') this.direction = 'down';
+        if (newDirection === 'left' && this.direction !== 'right') this.direction = 'left';
+        if (newDirection === 'right' && this.direction !== 'left') this.direction = 'right';
+    }
+
+    update() {
+        const head = {...this.snake[0]};
         
-        // 更新選中狀態
-        if (this.selectedDisk !== null && this.selectedPole !== null) {
-            const selectedDiskElement = document.querySelector(
-                `[data-size="${this.selectedDisk}"][data-pole="${this.selectedPole}"]`
-            );
-            if (selectedDiskElement) {
-                selectedDiskElement.classList.add('selected');
+        // 根據方向移動蛇頭
+        switch(this.direction) {
+            case 'up':
+                head.y--;
+                break;
+            case 'down':
+                head.y++;
+                break;
+            case 'left':
+                head.x--;
+                break;
+            case 'right':
+                head.x++;
+                break;
+        }
+        
+        // 檢查碰撞（牆壁）
+        if (head.x < 0 || head.x >= this.tileCount || head.y < 0 || head.y >= this.tileCount) {
+            this.gameOver();
+            return;
+        }
+        
+        // 檢查碰撞（自己）
+        for (let segment of this.snake) {
+            if (head.x === segment.x && head.y === segment.y) {
+                this.gameOver();
+                return;
             }
         }
-    }
-
-    handleDiskClick(diskSize, poleIndex) {
-        const pole = this.poles[poleIndex];
-        if (pole.length === 0) return;
         
-        const topDisk = pole[pole.length - 1];
-        if (topDisk !== diskSize) return; // 只能選擇最上面的圓盤
+        this.snake.unshift(head);
         
-        if (this.selectedDisk === diskSize && this.selectedPole === poleIndex) {
-            // 取消選擇
-            this.selectedDisk = null;
-            this.selectedPole = null;
+        // 檢查是否吃到食物
+        if (head.x === this.food.x && head.y === this.food.y) {
+            this.foodEaten++;
+            gameMaster.addScore(10);
+            this.generateFood();
+            this.updateInfo();
+            
+            // 隨著分數增加加快速度
+            if (this.foodEaten % 3 === 0 && this.gameSpeed > 80) {
+                this.gameSpeed -= 10;
+                clearInterval(this.gameInterval);
+                this.gameInterval = setInterval(() => {
+                    this.update();
+                    this.draw();
+                }, this.gameSpeed);
+            }
         } else {
-            // 選擇圓盤
-            this.selectedDisk = diskSize;
-            this.selectedPole = poleIndex;
+            this.snake.pop(); // 移除尾部
         }
-        
-        this.updateDisplay();
     }
 
-    handlePoleClick(targetPoleIndex) {
-        if (this.selectedDisk === null) return;
+    generateFood() {
+        let newFood;
+        do {
+            newFood = {
+                x: Math.floor(Math.random() * this.tileCount),
+                y: Math.floor(Math.random() * this.tileCount)
+            };
+        } while (this.snake.some(segment => segment.x === newFood.x && segment.y === newFood.y));
         
-        const sourcePole = this.poles[this.selectedPole];
-        const targetPole = this.poles[targetPoleIndex];
+        this.food = newFood;
+    }
+
+    draw() {
+        // 清空畫布
+        this.ctx.fillStyle = '#2c3e50';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // 檢查移動是否合法
-        if (targetPole.length === 0 || targetPole[targetPole.length - 1] > this.selectedDisk) {
-            // 移動圓盤
-            const disk = sourcePole.pop();
-            targetPole.push(disk);
-            this.moves++;
+        // 畫蛇
+        this.ctx.fillStyle = '#2ecc71';
+        for (let i = 0; i < this.snake.length; i++) {
+            const segment = this.snake[i];
+            this.ctx.fillRect(
+                segment.x * this.gridSize, 
+                segment.y * this.gridSize, 
+                this.gridSize - 2, 
+                this.gridSize - 2
+            );
             
-            // 清除選擇
-            this.selectedDisk = null;
-            this.selectedPole = null;
-            
-            // 檢查是否完成
-            if (this.poles[2].length === 3) {
-                this.completedTowers++;
-                gameMaster.addScore(100 + (10 - this.moves) * 5); // 獎勵更少移動次數
-                this.resetGame(); // 重新開始新的挑戰
+            // 蛇頭用不同顏色
+            if (i === 0) {
+                this.ctx.fillStyle = '#27ae60';
+                this.ctx.fillRect(
+                    segment.x * this.gridSize + 2, 
+                    segment.y * this.gridSize + 2, 
+                    this.gridSize - 6, 
+                    this.gridSize - 6
+                );
+                this.ctx.fillStyle = '#2ecc71';
             }
-            
-            this.updateDisplay();
-            document.getElementById('moves').textContent = this.moves;
         }
+        
+        // 畫食物
+        this.ctx.fillStyle = '#e74c3c';
+        this.ctx.fillRect(
+            this.food.x * this.gridSize, 
+            this.food.y * this.gridSize, 
+            this.gridSize - 2, 
+            this.gridSize - 2
+        );
+    }
+
+    updateInfo() {
+        document.getElementById('snake-length').textContent = this.snake.length;
+        document.getElementById('food-eaten').textContent = this.foodEaten;
+    }
+
+    gameOver() {
+        this.stop();
+        // 遊戲結束會在60秒到時由GameMaster處理
     }
 }
 
@@ -411,6 +478,11 @@ class SudokuGame {
     }
 
     start() {
+        if (!this.isInitialized) {
+            this.setupGrid();
+            this.setupEventListeners();
+            this.isInitialized = true;
+        }
         this.generatePuzzle();
         this.updateDisplay();
     }
@@ -622,8 +694,8 @@ function restartCurrentGame() {
     gameMaster.restartCurrentGame();
 }
 
-function resetHanoi() {
-    gameMaster.hanoi.resetGame();
+function changeDirection(direction) {
+    gameMaster.snake.changeDirection(direction);
 }
 
 function selectNumber(number) {

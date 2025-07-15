@@ -204,79 +204,81 @@ body {
     background: #CD853F;
 }
 
-/* 河內塔遊戲樣式 */
-.hanoi-container {
+/* 貪吃蛇遊戲樣式 */
+.snake-container {
     display: flex;
-    justify-content: space-around;
-    margin-bottom: 2rem;
-    padding: 2rem 0;
-}
-
-.hanoi-pole {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    position: relative;
-    min-height: 200px;
-}
-
-.pole {
-    width: 10px;
-    height: 150px;
-    background: #8B4513;
-    margin-bottom: 10px;
-    border-radius: 5px;
-}
-
-.disks {
-    position: absolute;
-    bottom: 0;
-    display: flex;
-    flex-direction: column-reverse;
-    align-items: center;
-}
-
-.disk {
-    height: 25px;
-    margin: 2px 0;
-    border-radius: 15px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
     justify-content: center;
-    font-weight: bold;
-    color: white;
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    margin-bottom: 2rem;
 }
 
-.disk:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 5px 10px rgba(0,0,0,0.4);
+#snake-canvas {
+    border: 3px solid #333;
+    border-radius: 10px;
+    background: #2c3e50;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
 }
 
-.disk.size-1 { width: 60px; background: #e74c3c; }
-.disk.size-2 { width: 80px; background: #f39c12; }
-.disk.size-3 { width: 100px; background: #2ecc71; }
-.disk.size-4 { width: 120px; background: #3498db; }
-
-.disk.selected {
-    transform: translateY(-10px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.4);
-    z-index: 10;
-}
-
-.hanoi-controls {
-    text-align: center;
+.snake-controls {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    margin-bottom: 1rem;
 }
 
-.moves-count {
+.direction-buttons {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.horizontal-btns {
+    display: flex;
+    gap: 2rem;
+}
+
+.dir-btn {
+    width: 50px;
+    height: 50px;
+    border: none;
+    border-radius: 10px;
+    background: #3498db;
+    color: white;
+    font-size: 1.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+}
+
+.dir-btn:hover {
+    background: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+.dir-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.snake-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
     font-weight: bold;
     color: #333;
+}
+
+.snake-length, .food-eaten {
+    font-size: 1.1rem;
+}
+
+.game-tips {
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    margin-top: 1rem;
 }
 
 /* 數獨遊戲樣式 */
@@ -496,9 +498,18 @@ body {
         height: 280px;
     }
     
-    .hanoi-container {
+    .snake-controls {
         flex-direction: column;
-        gap: 2rem;
+        gap: 1rem;
+    }
+    
+    .horizontal-btns {
+        gap: 1rem;
+    }
+    
+    #snake-canvas {
+        width: 300px;
+        height: 300px;
     }
 }
 

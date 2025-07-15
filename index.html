@@ -21,11 +21,11 @@
                     <div class="high-score">最高分: <span id="whack-high-score">0</span></div>
                 </div>
                 
-                <div class="game-card" onclick="startGame('hanoi')">
-                    <div class="game-icon">🗼</div>
-                    <h3>河內塔</h3>
-                    <p>移動圓盤到目標位置</p>
-                    <div class="high-score">最高分: <span id="hanoi-high-score">0</span></div>
+                <div class="game-card" onclick="startGame('snake')">
+                    <div class="game-icon">🐍</div>
+                    <h3>貪吃蛇</h3>
+                    <p>吃食物讓蛇變長</p>
+                    <div class="high-score">最高分: <span id="snake-high-score">0</span></div>
                 </div>
                 
                 <div class="game-card" onclick="startGame('sudoku')">
@@ -63,27 +63,27 @@
             </div>
         </div>
 
-        <!-- 河內塔遊戲 -->
-        <div id="hanoi" class="screen game-screen">
-            <h2>🗼 河內塔</h2>
-            <div class="hanoi-container">
-                <div class="hanoi-pole" id="pole-0">
-                    <div class="pole"></div>
-                    <div class="disks"></div>
+        <!-- 貪吃蛇遊戲 -->
+        <div id="snake" class="screen game-screen">
+            <h2>🐍 貪吃蛇</h2>
+            <div class="snake-container">
+                <canvas id="snake-canvas" width="400" height="400"></canvas>
+            </div>
+            <div class="snake-controls">
+                <div class="direction-buttons">
+                    <button class="dir-btn" onclick="changeDirection('up')">↑</button>
+                    <div class="horizontal-btns">
+                        <button class="dir-btn" onclick="changeDirection('left')">←</button>
+                        <button class="dir-btn" onclick="changeDirection('right')">→</button>
+                    </div>
+                    <button class="dir-btn" onclick="changeDirection('down')">↓</button>
                 </div>
-                <div class="hanoi-pole" id="pole-1">
-                    <div class="pole"></div>
-                    <div class="disks"></div>
-                </div>
-                <div class="hanoi-pole" id="pole-2">
-                    <div class="pole"></div>
-                    <div class="disks"></div>
+                <div class="snake-info">
+                    <div class="snake-length">蛇長: <span id="snake-length">1</span></div>
+                    <div class="food-eaten">食物: <span id="food-eaten">0</span></div>
                 </div>
             </div>
-            <div class="hanoi-controls">
-                <button onclick="resetHanoi()">重新開始</button>
-                <div class="moves-count">移動次數: <span id="moves">0</span></div>
-            </div>
+            <div class="game-tips">使用方向鍵或按鈕控制蛇的移動</div>
         </div>
 
         <!-- 4x4數獨遊戲 -->
