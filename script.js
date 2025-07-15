@@ -6,12 +6,16 @@ class GameMaster {
         this.timeLeft = 60;
         this.timer = null;
         this.highScores = this.loadHighScores();
-        this.updateHighScoreDisplay();
         
         // 遊戲實例
         this.whackAMole = new WhackAMoleGame();
         this.snake = new SnakeGame();
         this.sudoku = new SudokuGame();
+    }
+
+    init() {
+        // DOM準備好後調用的初始化方法
+        this.updateHighScoreDisplay();
     }
 
     loadHighScores() {
@@ -28,9 +32,13 @@ class GameMaster {
     }
 
     updateHighScoreDisplay() {
-        document.getElementById('whack-high-score').textContent = this.highScores['whack-a-mole'];
-        document.getElementById('snake-high-score').textContent = this.highScores['snake'];
-        document.getElementById('sudoku-high-score').textContent = this.highScores['sudoku'];
+        const whackScoreElement = document.getElementById('whack-high-score');
+        const snakeScoreElement = document.getElementById('snake-high-score');
+        const sudokuScoreElement = document.getElementById('sudoku-high-score');
+        
+        if (whackScoreElement) whackScoreElement.textContent = this.highScores['whack-a-mole'];
+        if (snakeScoreElement) snakeScoreElement.textContent = this.highScores['snake'];
+        if (sudokuScoreElement) sudokuScoreElement.textContent = this.highScores['sudoku'];
     }
 
     startGame(gameType) {
@@ -171,11 +179,14 @@ class WhackAMoleGame {
     constructor() {
         this.moleInterval = null;
         this.activeMoles = new Set();
-        this.holes = document.querySelectorAll('.mole-hole');
-        this.setupEventListeners();
+        this.holes = null;
+        this.isInitialized = false;
     }
 
     setupEventListeners() {
+        if (!this.holes) {
+            this.holes = document.querySelectorAll('.mole-hole');
+        }
         this.holes.forEach(hole => {
             const mole = hole.querySelector('.mole');
             mole.addEventListener('click', (e) => {
@@ -186,6 +197,10 @@ class WhackAMoleGame {
     }
 
     start() {
+        if (!this.isInitialized) {
+            this.setupEventListeners();
+            this.isInitialized = true;
+        }
         this.activeMoles.clear();
         this.hideAllMoles();
         this.moleInterval = setInterval(() => {
@@ -202,6 +217,9 @@ class WhackAMoleGame {
     }
 
     showRandomMole() {
+        if (!this.holes) {
+            this.holes = document.querySelectorAll('.mole-hole');
+        }
         // 隨機選擇一個洞
         const availableHoles = Array.from(this.holes).filter(hole => 
             !this.activeMoles.has(hole)
@@ -239,6 +257,9 @@ class WhackAMoleGame {
     }
 
     hideAllMoles() {
+        if (!this.holes) {
+            this.holes = document.querySelectorAll('.mole-hole');
+        }
         this.holes.forEach(hole => {
             const mole = hole.querySelector('.mole');
             mole.classList.remove('active');
@@ -679,6 +700,7 @@ let gameMaster;
 // 頁面加載完成後初始化
 document.addEventListener('DOMContentLoaded', () => {
     gameMaster = new GameMaster();
+    gameMaster.init();
 });
 
 // 全局函數（供HTML調用）
