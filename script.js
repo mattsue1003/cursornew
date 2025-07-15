@@ -275,12 +275,15 @@ class SnakeGame {
         this.ctx = null;
         this.snake = [{x: 10, y: 10}];
         this.direction = 'right';
-        this.food = {x: 15, y: 15};
+        this.food = {x: 15, y: 15, type: 'normal'};
+        this.specialFood = null;
         this.gridSize = 20;
         this.tileCount = 20;
         this.gameInterval = null;
         this.foodEaten = 0;
         this.gameSpeed = 150;
+        this.powerUps = [];
+        this.trails = [];
     }
 
     start() {
@@ -291,6 +294,9 @@ class SnakeGame {
         this.snake = [{x: 10, y: 10}];
         this.direction = 'right';
         this.foodEaten = 0;
+        this.gameSpeed = 150;
+        this.specialFood = null;
+        this.trails = [];
         this.generateFood();
         this.updateInfo();
         
@@ -344,6 +350,13 @@ class SnakeGame {
     update() {
         const head = {...this.snake[0]};
         
+        // 添加軌跡效果
+        this.trails.push({
+            x: head.x * this.gridSize + this.gridSize/2,
+            y: head.y * this.gridSize + this.gridSize/2,
+            life: 20
+        });
+        
         // 根據方向移動蛇頭
         switch(this.direction) {
             case 'up':
@@ -376,25 +389,54 @@ class SnakeGame {
         
         this.snake.unshift(head);
         
-        // 檢查是否吃到食物
+        let ateFood = false;
+        
+        // 檢查是否吃到普通食物
         if (head.x === this.food.x && head.y === this.food.y) {
             this.foodEaten++;
             gameMaster.addScore(10);
             this.generateFood();
+            ateFood = true;
+        }
+        
+        // 檢查是否吃到特殊食物
+        if (this.specialFood && head.x === this.specialFood.x && head.y === this.specialFood.y) {
+            this.foodEaten += 3;
+            gameMaster.addScore(50);
+            this.specialFood = null;
+            ateFood = true;
+            
+            // 特殊效果：暫時減慢速度
+            this.gameSpeed += 30;
+            setTimeout(() => {
+                if (this.gameSpeed > 80) this.gameSpeed -= 30;
+            }, 3000);
+        }
+        
+        if (ateFood) {
             this.updateInfo();
+            
+            // 隨機生成特殊食物
+            if (Math.random() < 0.3 && !this.specialFood) {
+                this.generateSpecialFood();
+            }
             
             // 隨著分數增加加快速度
             if (this.foodEaten % 3 === 0 && this.gameSpeed > 80) {
-                this.gameSpeed -= 10;
-                clearInterval(this.gameInterval);
-                this.gameInterval = setInterval(() => {
-                    this.update();
-                    this.draw();
-                }, this.gameSpeed);
+                this.gameSpeed -= 8;
+                this.restartGameLoop();
             }
         } else {
             this.snake.pop(); // 移除尾部
         }
+    }
+    
+    restartGameLoop() {
+        clearInterval(this.gameInterval);
+        this.gameInterval = setInterval(() => {
+            this.update();
+            this.draw();
+        }, this.gameSpeed);
     }
 
     generateFood() {
@@ -402,50 +444,121 @@ class SnakeGame {
         do {
             newFood = {
                 x: Math.floor(Math.random() * this.tileCount),
-                y: Math.floor(Math.random() * this.tileCount)
+                y: Math.floor(Math.random() * this.tileCount),
+                type: 'normal'
             };
-        } while (this.snake.some(segment => segment.x === newFood.x && segment.y === newFood.y));
+        } while (this.snake.some(segment => segment.x === newFood.x && segment.y === newFood.y) ||
+                 (this.specialFood && newFood.x === this.specialFood.x && newFood.y === this.specialFood.y));
         
         this.food = newFood;
+    }
+    
+    generateSpecialFood() {
+        let newFood;
+        do {
+            newFood = {
+                x: Math.floor(Math.random() * this.tileCount),
+                y: Math.floor(Math.random() * this.tileCount),
+                type: 'special'
+            };
+        } while (this.snake.some(segment => segment.x === newFood.x && segment.y === newFood.y) ||
+                 (newFood.x === this.food.x && newFood.y === this.food.y));
+        
+        this.specialFood = newFood;
+        
+        // 特殊食物10秒後消失
+        setTimeout(() => {
+            this.specialFood = null;
+        }, 10000);
     }
 
     draw() {
         // 清空畫布
-        this.ctx.fillStyle = '#2c3e50';
+        this.ctx.fillStyle = '#0a0a1a';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // 畫蛇
-        this.ctx.fillStyle = '#2ecc71';
+        // 畫軌跡效果
+        this.drawTrails();
+        
+        // 畫蛇身
         for (let i = 0; i < this.snake.length; i++) {
             const segment = this.snake[i];
+            const alpha = 1 - (i * 0.05); // 身體逐漸透明
+            
+            if (i === 0) {
+                // 蛇頭 - 發光效果
+                this.ctx.shadowBlur = 20;
+                this.ctx.shadowColor = '#00ffff';
+                this.ctx.fillStyle = '#00ffff';
+            } else {
+                // 蛇身 - 漸變色
+                this.ctx.shadowBlur = 10;
+                this.ctx.shadowColor = '#2ecc71';
+                this.ctx.fillStyle = `rgba(46, 204, 113, ${alpha})`;
+            }
+            
             this.ctx.fillRect(
-                segment.x * this.gridSize, 
-                segment.y * this.gridSize, 
+                segment.x * this.gridSize + 1, 
+                segment.y * this.gridSize + 1, 
                 this.gridSize - 2, 
                 this.gridSize - 2
             );
-            
-            // 蛇頭用不同顏色
-            if (i === 0) {
-                this.ctx.fillStyle = '#27ae60';
-                this.ctx.fillRect(
-                    segment.x * this.gridSize + 2, 
-                    segment.y * this.gridSize + 2, 
-                    this.gridSize - 6, 
-                    this.gridSize - 6
-                );
-                this.ctx.fillStyle = '#2ecc71';
-            }
         }
         
-        // 畫食物
-        this.ctx.fillStyle = '#e74c3c';
-        this.ctx.fillRect(
-            this.food.x * this.gridSize, 
-            this.food.y * this.gridSize, 
-            this.gridSize - 2, 
-            this.gridSize - 2
-        );
+        // 重置陰影
+        this.ctx.shadowBlur = 0;
+        
+        // 畫普通食物
+        this.drawFood(this.food, '#ff4757');
+        
+        // 畫特殊食物
+        if (this.specialFood) {
+            this.drawFood(this.specialFood, '#ffa502');
+        }
+    }
+    
+    drawTrails() {
+        // 更新和繪製軌跡
+        for (let i = this.trails.length - 1; i >= 0; i--) {
+            const trail = this.trails[i];
+            trail.life--;
+            
+            if (trail.life <= 0) {
+                this.trails.splice(i, 1);
+                continue;
+            }
+            
+            const alpha = trail.life / 20;
+            this.ctx.fillStyle = `rgba(0, 255, 255, ${alpha * 0.3})`;
+            this.ctx.fillRect(trail.x, trail.y, 3, 3);
+        }
+    }
+    
+    drawFood(food, color) {
+        const x = food.x * this.gridSize;
+        const y = food.y * this.gridSize;
+        
+        // 發光效果
+        this.ctx.shadowBlur = 15;
+        this.ctx.shadowColor = color;
+        
+        // 脈衝效果
+        const pulse = Math.sin(Date.now() * 0.01) * 0.2 + 0.8;
+        const size = (this.gridSize - 4) * pulse;
+        const offset = (this.gridSize - size) / 2;
+        
+        this.ctx.fillStyle = color;
+        this.ctx.fillRect(x + offset, y + offset, size, size);
+        
+        // 特殊食物添加星星效果
+        if (food.type === 'special') {
+            this.ctx.fillStyle = '#ffff00';
+            this.ctx.font = '12px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('★', x + this.gridSize/2, y + this.gridSize/2 + 4);
+        }
+        
+        this.ctx.shadowBlur = 0;
     }
 
     updateInfo() {
@@ -485,7 +598,11 @@ class SudokuGame {
     }
 
     setupEventListeners() {
-        document.querySelectorAll('.number-btn').forEach((btn, index) => {
+        // 重新綁定數字按鈕事件
+        const numberButtons = document.querySelectorAll('.number-btn');
+        numberButtons.forEach((btn) => {
+            // 移除舊的onclick屬性
+            btn.removeAttribute('onclick');
             btn.addEventListener('click', () => {
                 // 取消之前的選擇
                 document.querySelectorAll('.number-btn').forEach(b => b.classList.remove('selected'));
