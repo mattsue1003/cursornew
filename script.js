@@ -1,632 +1,554 @@
-// 遊戲大補帖 - 主控制器
-class GameMaster {
+// 預防肌肉健康留言板 - 主要功能控制器
+class MessageBoard {
     constructor() {
-        this.currentGame = null;
-        this.score = 0;
-        this.timeLeft = 60;
-        this.timer = null;
-        this.highScores = this.loadHighScores();
-        this.updateHighScoreDisplay();
+        this.messages = this.loadMessages();
+        this.currentTopic = this.loadTopic();
+        this.currentFilter = 'all';
+        this.chart = null;
         
-        // 遊戲實例
-        this.whackAMole = new WhackAMoleGame();
-        this.hanoi = new HanoiGame();
-        this.sudoku = new SudokuGame();
+        this.init();
     }
 
-    loadHighScores() {
-        const saved = localStorage.getItem('gameHighScores');
-        return saved ? JSON.parse(saved) : {
-            'whack-a-mole': 0,
-            'hanoi': 0,
-            'sudoku': 0
-        };
-    }
-
-    saveHighScores() {
-        localStorage.setItem('gameHighScores', JSON.stringify(this.highScores));
-    }
-
-    updateHighScoreDisplay() {
-        document.getElementById('whack-high-score').textContent = this.highScores['whack-a-mole'];
-        document.getElementById('hanoi-high-score').textContent = this.highScores['hanoi'];
-        document.getElementById('sudoku-high-score').textContent = this.highScores['sudoku'];
-    }
-
-    startGame(gameType) {
-        this.currentGame = gameType;
-        this.score = 0;
-        this.timeLeft = 60;
-        
-        // 隱藏主選單，顯示遊戲畫面
-        document.getElementById('main-menu').classList.remove('active');
-        document.querySelector('.game-header').style.display = 'flex';
-        document.getElementById(gameType).classList.add('active');
-        
-        // 重置分數和時間顯示
-        document.getElementById('score').textContent = this.score;
-        document.getElementById('timer').textContent = this.timeLeft;
-        
-        // 啟動對應的遊戲
-        switch(gameType) {
-            case 'whack-a-mole':
-                this.whackAMole.start();
-                break;
-            case 'hanoi':
-                this.hanoi.start();
-                break;
-            case 'sudoku':
-                this.sudoku.start();
-                break;
-        }
-        
-        // 開始計時
-        this.startTimer();
-    }
-
-    startTimer() {
-        this.timer = setInterval(() => {
-            this.timeLeft--;
-            document.getElementById('timer').textContent = this.timeLeft;
-            
-            if (this.timeLeft <= 0) {
-                this.endGame();
-            }
-        }, 1000);
-    }
-
-    stopTimer() {
-        if (this.timer) {
-            clearInterval(this.timer);
-            this.timer = null;
-        }
-    }
-
-    addScore(points) {
-        this.score += points;
-        document.getElementById('score').textContent = this.score;
-    }
-
-    endGame() {
-        this.stopTimer();
-        
-        // 停止當前遊戲
-        switch(this.currentGame) {
-            case 'whack-a-mole':
-                this.whackAMole.stop();
-                break;
-            case 'hanoi':
-                this.hanoi.stop();
-                break;
-            case 'sudoku':
-                this.sudoku.stop();
-                break;
-        }
-        
-        // 檢查是否創新紀錄
-        const isNewRecord = this.score > this.highScores[this.currentGame];
-        if (isNewRecord) {
-            this.highScores[this.currentGame] = this.score;
-            this.saveHighScores();
-            this.updateHighScoreDisplay();
-        }
-        
-        // 隱藏遊戲畫面，顯示結束畫面
-        document.getElementById(this.currentGame).classList.remove('active');
-        document.querySelector('.game-header').style.display = 'none';
-        
-        const gameOverScreen = document.getElementById('game-over');
-        gameOverScreen.classList.add('active');
-        document.getElementById('final-score').textContent = this.score;
-        
-        const newRecordElement = document.getElementById('new-record');
-        if (isNewRecord) {
-            newRecordElement.classList.remove('hidden');
-        } else {
-            newRecordElement.classList.add('hidden');
-        }
-    }
-
-    backToMenu() {
-        this.stopTimer();
-        
-        // 停止當前遊戲
-        if (this.currentGame) {
-            switch(this.currentGame) {
-                case 'whack-a-mole':
-                    this.whackAMole.stop();
-                    break;
-                case 'hanoi':
-                    this.hanoi.stop();
-                    break;
-                case 'sudoku':
-                    this.sudoku.stop();
-                    break;
-            }
-        }
-        
-        // 隱藏所有畫面
-        document.querySelectorAll('.screen').forEach(screen => {
-            screen.classList.remove('active');
-        });
-        document.querySelector('.game-header').style.display = 'none';
-        
-        // 顯示主選單
-        document.getElementById('main-menu').classList.add('active');
-        this.currentGame = null;
-    }
-
-    restartCurrentGame() {
-        if (this.currentGame) {
-            // 隱藏結束畫面
-            document.getElementById('game-over').classList.remove('active');
-            // 重新開始當前遊戲
-            this.startGame(this.currentGame);
-        }
-    }
-}
-
-// 打地鼠遊戲
-class WhackAMoleGame {
-    constructor() {
-        this.moleInterval = null;
-        this.activeMoles = new Set();
-        this.holes = document.querySelectorAll('.mole-hole');
+    init() {
         this.setupEventListeners();
+        this.displayMessages();
+        this.updateStats();
+        this.updateTopicDisplay();
+        this.initChart();
     }
 
     setupEventListeners() {
-        this.holes.forEach(hole => {
-            const mole = hole.querySelector('.mole');
-            mole.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.hitMole(hole);
-            });
+        // 留言表單提交
+        document.getElementById('messageForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.addMessage();
         });
-    }
 
-    start() {
-        this.activeMoles.clear();
-        this.hideAllMoles();
-        this.moleInterval = setInterval(() => {
-            this.showRandomMole();
-        }, 800);
-    }
-
-    stop() {
-        if (this.moleInterval) {
-            clearInterval(this.moleInterval);
-            this.moleInterval = null;
-        }
-        this.hideAllMoles();
-    }
-
-    showRandomMole() {
-        // 隨機選擇一個洞
-        const availableHoles = Array.from(this.holes).filter(hole => 
-            !this.activeMoles.has(hole)
-        );
-        
-        if (availableHoles.length === 0) return;
-        
-        const randomHole = availableHoles[Math.floor(Math.random() * availableHoles.length)];
-        const mole = randomHole.querySelector('.mole');
-        
-        // 顯示地鼠
-        mole.classList.add('active');
-        this.activeMoles.add(randomHole);
-        
-        // 1.5秒後自動隱藏
-        setTimeout(() => {
-            mole.classList.remove('active');
-            this.activeMoles.delete(randomHole);
-        }, 1500);
-    }
-
-    hitMole(hole) {
-        const mole = hole.querySelector('.mole');
-        if (mole.classList.contains('active')) {
-            mole.classList.remove('active');
-            this.activeMoles.delete(hole);
-            gameMaster.addScore(10);
-            
-            // 添加打擊效果
-            mole.style.background = '#ff6b6b';
-            setTimeout(() => {
-                mole.style.background = '#D2691E';
-            }, 200);
-        }
-    }
-
-    hideAllMoles() {
-        this.holes.forEach(hole => {
-            const mole = hole.querySelector('.mole');
-            mole.classList.remove('active');
-        });
-        this.activeMoles.clear();
-    }
-}
-
-// 河內塔遊戲
-class HanoiGame {
-    constructor() {
-        this.poles = [[], [], []];
-        this.selectedDisk = null;
-        this.selectedPole = null;
-        this.moves = 0;
-        this.completedTowers = 0;
-        this.setupEventListeners();
-    }
-
-    setupEventListeners() {
-        document.querySelectorAll('.hanoi-pole').forEach((pole, index) => {
-            pole.addEventListener('click', () => {
-                this.handlePoleClick(index);
-            });
-        });
-    }
-
-    start() {
-        this.resetGame();
-    }
-
-    stop() {
-        // 河內塔沒有需要停止的計時器
-    }
-
-    resetGame() {
-        this.poles = [[], [], []];
-        this.selectedDisk = null;
-        this.selectedPole = null;
-        this.moves = 0;
-        this.completedTowers = 0;
-        
-        // 初始化3個圓盤在第一根柱子上
-        this.poles[0] = [3, 2, 1]; // 大到小
-        
-        this.updateDisplay();
-        document.getElementById('moves').textContent = this.moves;
-    }
-
-    updateDisplay() {
-        this.poles.forEach((pole, poleIndex) => {
-            const poleElement = document.getElementById(`pole-${poleIndex}`);
-            const disksContainer = poleElement.querySelector('.disks');
-            disksContainer.innerHTML = '';
-            
-            pole.forEach((diskSize, diskIndex) => {
-                const disk = document.createElement('div');
-                disk.className = `disk size-${diskSize}`;
-                disk.textContent = diskSize;
-                disk.dataset.size = diskSize;
-                disk.dataset.pole = poleIndex;
-                
-                disk.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.handleDiskClick(diskSize, poleIndex);
-                });
-                
-                disksContainer.appendChild(disk);
-            });
-        });
-        
-        // 更新選中狀態
-        if (this.selectedDisk !== null && this.selectedPole !== null) {
-            const selectedDiskElement = document.querySelector(
-                `[data-size="${this.selectedDisk}"][data-pole="${this.selectedPole}"]`
-            );
-            if (selectedDiskElement) {
-                selectedDiskElement.classList.add('selected');
+        // 點擊模態背景關閉
+        document.getElementById('topicModal').addEventListener('click', (e) => {
+            if (e.target.id === 'topicModal') {
+                this.closeTopicModal();
             }
-        }
-    }
-
-    handleDiskClick(diskSize, poleIndex) {
-        const pole = this.poles[poleIndex];
-        if (pole.length === 0) return;
-        
-        const topDisk = pole[pole.length - 1];
-        if (topDisk !== diskSize) return; // 只能選擇最上面的圓盤
-        
-        if (this.selectedDisk === diskSize && this.selectedPole === poleIndex) {
-            // 取消選擇
-            this.selectedDisk = null;
-            this.selectedPole = null;
-        } else {
-            // 選擇圓盤
-            this.selectedDisk = diskSize;
-            this.selectedPole = poleIndex;
-        }
-        
-        this.updateDisplay();
-    }
-
-    handlePoleClick(targetPoleIndex) {
-        if (this.selectedDisk === null) return;
-        
-        const sourcePole = this.poles[this.selectedPole];
-        const targetPole = this.poles[targetPoleIndex];
-        
-        // 檢查移動是否合法
-        if (targetPole.length === 0 || targetPole[targetPole.length - 1] > this.selectedDisk) {
-            // 移動圓盤
-            const disk = sourcePole.pop();
-            targetPole.push(disk);
-            this.moves++;
-            
-            // 清除選擇
-            this.selectedDisk = null;
-            this.selectedPole = null;
-            
-            // 檢查是否完成
-            if (this.poles[2].length === 3) {
-                this.completedTowers++;
-                gameMaster.addScore(100 + (10 - this.moves) * 5); // 獎勵更少移動次數
-                this.resetGame(); // 重新開始新的挑戰
-            }
-            
-            this.updateDisplay();
-            document.getElementById('moves').textContent = this.moves;
-        }
-    }
-}
-
-// 4x4數獨遊戲
-class SudokuGame {
-    constructor() {
-        this.grid = Array(16).fill(0);
-        this.solution = Array(16).fill(0);
-        this.given = Array(16).fill(false);
-        this.selectedCell = null;
-        this.selectedNumber = 0;
-        this.completedPuzzles = 0;
-        this.setupGrid();
-        this.setupEventListeners();
-    }
-
-    setupGrid() {
-        const gridElement = document.getElementById('sudoku-grid');
-        gridElement.innerHTML = '';
-        
-        for (let i = 0; i < 16; i++) {
-            const cell = document.createElement('div');
-            cell.className = 'sudoku-cell';
-            cell.dataset.index = i;
-            cell.addEventListener('click', () => this.selectCell(i));
-            gridElement.appendChild(cell);
-        }
-    }
-
-    setupEventListeners() {
-        document.querySelectorAll('.number-btn').forEach((btn, index) => {
-            btn.addEventListener('click', () => {
-                // 取消之前的選擇
-                document.querySelectorAll('.number-btn').forEach(b => b.classList.remove('selected'));
-                btn.classList.add('selected');
-            });
         });
     }
 
-    start() {
-        this.generatePuzzle();
-        this.updateDisplay();
+    // 載入儲存的留言
+    loadMessages() {
+        const saved = localStorage.getItem('muscleHealthMessages');
+        return saved ? JSON.parse(saved) : this.getDefaultMessages();
     }
 
-    stop() {
-        // 數獨沒有需要停止的計時器
+    // 載入儲存的主題
+    loadTopic() {
+        return localStorage.getItem('currentTopic') || '預防肌肉拉傷的方法';
     }
 
-    generatePuzzle() {
-        // 生成一個完整的4x4數獨解答
-        this.solution = [
-            1, 2, 3, 4,
-            3, 4, 1, 2,
-            2, 1, 4, 3,
-            4, 3, 2, 1
+    // 儲存留言到本地存儲
+    saveMessages() {
+        localStorage.setItem('muscleHealthMessages', JSON.stringify(this.messages));
+    }
+
+    // 儲存主題到本地存儲
+    saveTopic() {
+        localStorage.setItem('currentTopic', this.currentTopic);
+    }
+
+    // 預設留言（示例數據）
+    getDefaultMessages() {
+        return [
+            {
+                id: 1,
+                username: '健身愛好者',
+                content: '我發現運動前做充分的熱身運動真的很重要！特別是動態拉伸，可以有效預防肌肉拉傷。建議大家運動前至少花10-15分鐘做熱身。',
+                category: 'prevention',
+                timestamp: new Date(Date.now() - 86400000).toISOString(),
+                anonymous: false
+            },
+            {
+                id: 2,
+                username: '',
+                content: '請問有人知道什麼運動器材比較適合肌肉恢復嗎？我最近運動後肌肉痠痛比較嚴重。',
+                category: 'question',
+                timestamp: new Date(Date.now() - 43200000).toISOString(),
+                anonymous: true
+            },
+            {
+                id: 3,
+                username: '營養師小王',
+                content: '蛋白質補充對肌肉恢復很重要！建議運動後30分鐘內攝取優質蛋白質，如雞蛋、牛奶或蛋白粉。每公斤體重需要1.2-2.0克蛋白質。',
+                category: 'nutrition',
+                timestamp: new Date(Date.now() - 21600000).toISOString(),
+                anonymous: false
+            }
         ];
-        
-        // 隨機交換行和列來創建變化
-        this.shuffleSolution();
-        
-        // 創建謎題（隱藏一些數字）
-        this.grid = [...this.solution];
-        this.given.fill(false);
-        
-        // 隨機保留6-8個數字作為提示
-        const numGiven = 6 + Math.floor(Math.random() * 3);
-        const positions = Array.from({length: 16}, (_, i) => i);
-        
-        // 隨機打亂位置
-        for (let i = positions.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [positions[i], positions[j]] = [positions[j], positions[i]];
-        }
-        
-        // 保留前numGiven個位置的數字
-        positions.slice(0, numGiven).forEach(pos => {
-            this.given[pos] = true;
-        });
-        
-        // 隱藏其他位置的數字
-        for (let i = 0; i < 16; i++) {
-            if (!this.given[i]) {
-                this.grid[i] = 0;
-            }
-        }
     }
 
-    shuffleSolution() {
-        // 隨機交換同一組內的行
-        if (Math.random() > 0.5) {
-            this.swapRows(0, 1);
+    // 新增留言
+    addMessage() {
+        const username = document.getElementById('username').value.trim();
+        const content = document.getElementById('message').value.trim();
+        const category = document.getElementById('category').value;
+
+        if (!content) {
+            alert('請輸入留言內容！');
+            return;
         }
-        if (Math.random() > 0.5) {
-            this.swapRows(2, 3);
-        }
+
+        const newMessage = {
+            id: Date.now(),
+            username: username || '',
+            content: content,
+            category: category,
+            timestamp: new Date().toISOString(),
+            anonymous: !username
+        };
+
+        this.messages.unshift(newMessage);
+        this.saveMessages();
+        this.displayMessages();
+        this.updateStats();
+        this.updateChart();
+
+        // 清空表單
+        document.getElementById('messageForm').reset();
         
-        // 隨機交換同一組內的列
-        if (Math.random() > 0.5) {
-            this.swapCols(0, 1);
-        }
-        if (Math.random() > 0.5) {
-            this.swapCols(2, 3);
-        }
-        
-        // 隨機交換行組
-        if (Math.random() > 0.5) {
-            this.swapRowGroups();
-        }
-        
-        // 隨機交換列組
-        if (Math.random() > 0.5) {
-            this.swapColGroups();
-        }
+        // 顯示成功提示
+        this.showNotification('留言發表成功！', 'success');
     }
 
-    swapRows(row1, row2) {
-        for (let col = 0; col < 4; col++) {
-            const index1 = row1 * 4 + col;
-            const index2 = row2 * 4 + col;
-            [this.solution[index1], this.solution[index2]] = [this.solution[index2], this.solution[index1]];
+    // 顯示留言
+    displayMessages() {
+        const container = document.getElementById('messagesList');
+        const filteredMessages = this.currentFilter === 'all' 
+            ? this.messages 
+            : this.messages.filter(msg => msg.category === this.currentFilter);
+
+        if (filteredMessages.length === 0) {
+            container.innerHTML = '<div class="no-messages">暫無留言，快來發表第一則留言吧！</div>';
+            return;
         }
+
+        container.innerHTML = filteredMessages.map(message => `
+            <div class="message-item">
+                <div class="message-header">
+                    <span class="message-author ${message.anonymous ? 'anonymous' : ''}">
+                        ${message.anonymous ? '匿名用戶' : message.username}
+                    </span>
+                    <span class="message-category ${message.category}">
+                        ${this.getCategoryName(message.category)}
+                    </span>
+                </div>
+                <div class="message-content">${this.formatContent(message.content)}</div>
+                <div class="message-time">${this.formatTime(message.timestamp)}</div>
+            </div>
+        `).join('');
     }
 
-    swapCols(col1, col2) {
-        for (let row = 0; row < 4; row++) {
-            const index1 = row * 4 + col1;
-            const index2 = row * 4 + col2;
-            [this.solution[index1], this.solution[index2]] = [this.solution[index2], this.solution[index1]];
-        }
+    // 格式化留言內容（支持換行）
+    formatContent(content) {
+        return content.replace(/\n/g, '<br>');
     }
 
-    swapRowGroups() {
-        for (let col = 0; col < 4; col++) {
-            [this.solution[0 * 4 + col], this.solution[2 * 4 + col]] = [this.solution[2 * 4 + col], this.solution[0 * 4 + col]];
-            [this.solution[1 * 4 + col], this.solution[3 * 4 + col]] = [this.solution[3 * 4 + col], this.solution[1 * 4 + col]];
-        }
-    }
-
-    swapColGroups() {
-        for (let row = 0; row < 4; row++) {
-            [this.solution[row * 4 + 0], this.solution[row * 4 + 2]] = [this.solution[row * 4 + 2], this.solution[row * 4 + 0]];
-            [this.solution[row * 4 + 1], this.solution[row * 4 + 3]] = [this.solution[row * 4 + 3], this.solution[row * 4 + 1]];
-        }
-    }
-
-    selectCell(index) {
-        if (this.given[index]) return; // 不能選擇給定的數字
+    // 格式化時間顯示
+    formatTime(timestamp) {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diff = now - date;
         
-        // 取消之前的選擇
-        document.querySelectorAll('.sudoku-cell').forEach(cell => {
-            cell.classList.remove('selected');
-        });
-        
-        // 選擇新的格子
-        this.selectedCell = index;
-        document.querySelector(`[data-index="${index}"]`).classList.add('selected');
-    }
-
-    selectNumber(number) {
-        this.selectedNumber = number;
-        if (this.selectedCell !== null) {
-            this.placeNumber();
-        }
-    }
-
-    placeNumber() {
-        if (this.selectedCell === null) return;
-        
-        const cell = document.querySelector(`[data-index="${this.selectedCell}"]`);
-        
-        if (this.selectedNumber === 0) {
-            // 清除數字
-            this.grid[this.selectedCell] = 0;
-            cell.textContent = '';
-            cell.classList.remove('error', 'correct');
+        if (diff < 60000) { // 1分鐘內
+            return '剛剛';
+        } else if (diff < 3600000) { // 1小時內
+            return `${Math.floor(diff / 60000)}分鐘前`;
+        } else if (diff < 86400000) { // 24小時內
+            return `${Math.floor(diff / 3600000)}小時前`;
         } else {
-            // 放置數字
-            this.grid[this.selectedCell] = this.selectedNumber;
-            cell.textContent = this.selectedNumber;
-            
-            // 檢查是否正確
-            if (this.selectedNumber === this.solution[this.selectedCell]) {
-                cell.classList.remove('error');
-                cell.classList.add('correct');
-                
-                // 檢查是否完成
-                if (this.isPuzzleComplete()) {
-                    this.completedPuzzles++;
-                    gameMaster.addScore(50);
-                    setTimeout(() => {
-                        this.generatePuzzle();
-                        this.updateDisplay();
-                    }, 500);
+            return date.toLocaleDateString('zh-TW') + ' ' + date.toLocaleTimeString('zh-TW', {hour: '2-digit', minute: '2-digit'});
+        }
+    }
+
+    // 獲取分類名稱
+    getCategoryName(category) {
+        const names = {
+            'prevention': '預防方法',
+            'exercise': '運動建議',
+            'nutrition': '營養補充',
+            'recovery': '恢復技巧',
+            'equipment': '器材推薦',
+            'question': '疑問求助'
+        };
+        return names[category] || category;
+    }
+
+    // 更新統計數據
+    updateStats() {
+        const today = new Date().toDateString();
+        const todayMessages = this.messages.filter(msg => 
+            new Date(msg.timestamp).toDateString() === today
+        ).length;
+
+        const categoryCount = {};
+        this.messages.forEach(msg => {
+            categoryCount[msg.category] = (categoryCount[msg.category] || 0) + 1;
+        });
+
+        const popularCategory = Object.keys(categoryCount).reduce((a, b) => 
+            categoryCount[a] > categoryCount[b] ? a : b, 'prevention'
+        );
+
+        const activeUsers = new Set(
+            this.messages.filter(msg => !msg.anonymous).map(msg => msg.username)
+        ).size;
+
+        document.getElementById('totalMessages').textContent = this.messages.length;
+        document.getElementById('todayMessages').textContent = todayMessages;
+        document.getElementById('popularCategory').textContent = this.getCategoryName(popularCategory);
+        document.getElementById('activeUsers').textContent = activeUsers;
+    }
+
+    // 初始化圖表
+    initChart() {
+        const ctx = document.getElementById('categoryChart').getContext('2d');
+        
+        const categoryCount = {
+            'prevention': 0,
+            'exercise': 0,
+            'nutrition': 0,
+            'recovery': 0,
+            'equipment': 0,
+            'question': 0
+        };
+
+        this.messages.forEach(msg => {
+            categoryCount[msg.category]++;
+        });
+
+        this.chart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(categoryCount).map(key => this.getCategoryName(key)),
+                datasets: [{
+                    data: Object.values(categoryCount),
+                    backgroundColor: [
+                        '#27ae60', // prevention
+                        '#e74c3c', // exercise
+                        '#f39c12', // nutrition
+                        '#9b59b6', // recovery
+                        '#34495e', // equipment
+                        '#e67e22'  // question
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
                 }
-            } else {
-                cell.classList.remove('correct');
-                cell.classList.add('error');
-            }
-        }
-    }
-
-    isPuzzleComplete() {
-        for (let i = 0; i < 16; i++) {
-            if (this.grid[i] !== this.solution[i]) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    updateDisplay() {
-        const cells = document.querySelectorAll('.sudoku-cell');
-        cells.forEach((cell, index) => {
-            cell.textContent = this.grid[index] || '';
-            cell.classList.remove('given', 'error', 'correct', 'selected');
-            
-            if (this.given[index]) {
-                cell.classList.add('given');
             }
         });
-        
-        this.selectedCell = null;
     }
 
-    generateNewSudoku() {
-        this.generatePuzzle();
-        this.updateDisplay();
+    // 更新圖表
+    updateChart() {
+        if (!this.chart) return;
+
+        const categoryCount = {
+            'prevention': 0,
+            'exercise': 0,
+            'nutrition': 0,
+            'recovery': 0,
+            'equipment': 0,
+            'question': 0
+        };
+
+        this.messages.forEach(msg => {
+            categoryCount[msg.category]++;
+        });
+
+        this.chart.data.datasets[0].data = Object.values(categoryCount);
+        this.chart.update();
+    }
+
+    // 更新主題顯示
+    updateTopicDisplay() {
+        document.getElementById('current-topic-text').textContent = this.currentTopic;
+    }
+
+    // 顯示通知
+    showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.textContent = message;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${type === 'success' ? '#27ae60' : '#3498db'};
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 10000;
+            animation: slideInRight 0.3s ease;
+        `;
+
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.style.animation = 'slideOutRight 0.3s ease';
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 300);
+        }, 3000);
     }
 }
 
-// 全局變量和函數
-let gameMaster;
+// 標籤切換功能
+function showTab(tabName) {
+    // 隱藏所有標籤內容
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // 移除所有標籤按鈕的活躍狀態
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // 顯示選中的標籤內容
+    document.getElementById(tabName).classList.add('active');
+    
+    // 設置對應按鈕為活躍狀態
+    event.target.classList.add('active');
+
+    // 如果是文字雲標籤，生成文字雲
+    if (tabName === 'wordcloud') {
+        setTimeout(() => generateWordCloud(), 100);
+    }
+}
+
+// 留言篩選功能
+function filterMessages(category) {
+    messageBoard.currentFilter = category;
+    
+    // 更新篩選按鈕狀態
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    // 重新顯示留言
+    messageBoard.displayMessages();
+}
+
+// 主題設定功能
+function showTopicModal() {
+    document.getElementById('topicModal').classList.add('active');
+}
+
+function closeTopicModal() {
+    document.getElementById('topicModal').classList.remove('active');
+}
+
+function setTopic(topic) {
+    messageBoard.currentTopic = topic;
+    messageBoard.saveTopic();
+    messageBoard.updateTopicDisplay();
+    closeTopicModal();
+    messageBoard.showNotification(`主題已更改為：${topic}`, 'success');
+}
+
+function setCustomTopic() {
+    const customTopic = document.getElementById('customTopic').value.trim();
+    if (!customTopic) {
+        alert('請輸入自訂主題！');
+        return;
+    }
+    
+    setTopic(customTopic);
+    document.getElementById('customTopic').value = '';
+}
+
+// 模板使用功能
+function useTemplate(templateType) {
+    const templates = {
+        'exercise': `運動項目：[填入運動名稱]
+持續時間：[填入時間]
+效果：[描述對肌肉的幫助]
+注意事項：[提醒要注意的地方]
+推薦指數：⭐⭐⭐⭐⭐`,
+
+        'nutrition': `補充品名稱：[填入名稱]
+服用方式：[描述服用方法]
+效果：[對肌肉健康的幫助]
+副作用：[如有請註明]
+推薦對象：[適合的人群]`,
+
+        'equipment': `器材名稱：[填入器材名稱]
+使用方法：[簡述使用方式]
+優點：[列出優點]
+缺點：[如有請註明]
+購買建議：[價格、品牌等建議]`,
+
+        'question': `問題描述：[詳細描述遇到的問題]
+已嘗試方法：[列出已經試過的方法]
+個人情況：[年齡、運動習慣等]
+希望得到：[具體需要什麼幫助]`
+    };
+
+    // 切換到留言板標籤
+    showTab('messages');
+    
+    // 填入模板內容
+    document.getElementById('message').value = templates[templateType];
+    
+    // 設置對應的分類
+    const categoryMap = {
+        'exercise': 'exercise',
+        'nutrition': 'nutrition',
+        'equipment': 'equipment',
+        'question': 'question'
+    };
+    document.getElementById('category').value = categoryMap[templateType];
+    
+    // 滾動到表單位置
+    document.querySelector('.message-form').scrollIntoView({ behavior: 'smooth' });
+    
+    messageBoard.showNotification('模板已套用，請修改相關內容後發表', 'success');
+}
+
+// 文字雲功能
+function generateWordCloud() {
+    const canvas = document.getElementById('wordcloud-canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // 清空畫布
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 收集所有留言內容
+    const allText = messageBoard.messages.map(msg => msg.content).join(' ');
+    
+    // 簡單的中文分詞（基於常見詞彙）
+    const keywords = extractKeywords(allText);
+    
+    if (keywords.length === 0) {
+        ctx.fillStyle = '#7f8c8d';
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('暫無足夠數據生成文字雲', canvas.width / 2, canvas.height / 2);
+        return;
+    }
+    
+    // 生成文字雲數據
+    const wordCloudData = keywords.map(([word, count]) => [word, count * 10]);
+    
+    try {
+        WordCloud(canvas, {
+            list: wordCloudData,
+            gridSize: Math.round(16 * canvas.width / 1024),
+            weightFactor: function (size) {
+                return Math.pow(size, 2.3) * canvas.width / 1024;
+            },
+            fontFamily: 'Microsoft JhengHei, Arial, sans-serif',
+            color: function () {
+                const colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c'];
+                return colors[Math.floor(Math.random() * colors.length)];
+            },
+            rotateRatio: 0.5,
+            rotationSteps: 2,
+            backgroundColor: 'transparent'
+        });
+    } catch (error) {
+        console.error('文字雲生成失敗:', error);
+        ctx.fillStyle = '#e74c3c';
+        ctx.font = '20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('文字雲生成失敗，請稍後再試', canvas.width / 2, canvas.height / 2);
+    }
+}
+
+// 關鍵字提取函數
+function extractKeywords(text) {
+    // 移除標點符號和特殊字符
+    const cleanText = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9\s]/g, ' ');
+    
+    // 肌肉健康相關關鍵詞
+    const healthKeywords = [
+        '肌肉', '運動', '健身', '拉傷', '預防', '恢復', '營養', '蛋白質',
+        '熱身', '伸展', '按摩', '休息', '訓練', '器材', '補充', '維生素',
+        '鈣質', '水分', '睡眠', '疲勞', '痠痛', '放鬆', '強化', '柔軟度',
+        '有氧', '無氧', '重訓', '瑜伽', '游泳', '跑步', '騎車', '健走'
+    ];
+    
+    const wordCount = {};
+    
+    // 統計關鍵詞出現次數
+    healthKeywords.forEach(keyword => {
+        const regex = new RegExp(keyword, 'g');
+        const matches = cleanText.match(regex);
+        if (matches) {
+            wordCount[keyword] = matches.length;
+        }
+    });
+    
+    // 也統計一些常見的2-3字詞
+    const words = cleanText.match(/[\u4e00-\u9fa5]{2,3}/g) || [];
+    words.forEach(word => {
+        if (word.length >= 2 && !['我們', '可以', '這個', '那個', '如果', '因為', '所以', '但是', '而且', '或者'].includes(word)) {
+            wordCount[word] = (wordCount[word] || 0) + 1;
+        }
+    });
+    
+    // 排序並返回前20個詞
+    return Object.entries(wordCount)
+        .filter(([word, count]) => count > 1)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20);
+}
+
+// 下載文字雲圖片
+function downloadWordCloud() {
+    const canvas = document.getElementById('wordcloud-canvas');
+    const link = document.createElement('a');
+    link.download = '肌肉健康文字雲.png';
+    link.href = canvas.toDataURL();
+    link.click();
+    
+    messageBoard.showNotification('文字雲圖片已下載', 'success');
+}
+
+// 全局變量
+let messageBoard;
 
 // 頁面加載完成後初始化
 document.addEventListener('DOMContentLoaded', () => {
-    gameMaster = new GameMaster();
+    messageBoard = new MessageBoard();
+    
+    // 添加動畫樣式
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes slideOutRight {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+        
+        .no-messages {
+            text-align: center;
+            color: #7f8c8d;
+            font-style: italic;
+            padding: 40px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+    `;
+    document.head.appendChild(style);
 });
-
-// 全局函數（供HTML調用）
-function startGame(gameType) {
-    gameMaster.startGame(gameType);
-}
-
-function backToMenu() {
-    gameMaster.backToMenu();
-}
-
-function restartCurrentGame() {
-    gameMaster.restartCurrentGame();
-}
-
-function resetHanoi() {
-    gameMaster.hanoi.resetGame();
-}
-
-function selectNumber(number) {
-    gameMaster.sudoku.selectNumber(number);
-}
-
-function generateNewSudoku() {
-    gameMaster.sudoku.generateNewSudoku();
-}
